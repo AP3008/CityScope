@@ -171,11 +171,3 @@ def scrapeMultiplePages():
         print(ids)
     return all_document_ids
 
-def buildPdfUrls(document_ids):
-    """
-    Build full PDF URLs from DocumentIds
-    """
-    base_url = "https://pub-london.escribemeetings.com/FileStream.ashx?DocumentId="
-    return [f"{base_url}{doc_id}" for doc_id in sorted(document_ids)]
-
-scrapeMultiplePages()
