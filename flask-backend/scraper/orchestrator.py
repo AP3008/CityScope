@@ -6,17 +6,19 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from fetchers.fetch import scrapeMultiplePages
 from parsers.parser import parseMultiplePdfs, prepareTextForLLM
+from summarizer import summarizeMultipleDocuments
 
-def runCompletePipeline(max_documents=None, save_to_file=False):
+def runCompletePipeline(max_documents=None, save_to_file=False, summarize=True):
     """
-    Complete pipeline: Scrape -> Parse -> Prepare for LLM
+    Complete pipeline: Scrape -> Parse -> Prepare for LLM -> Summarize
     
     Args:
         max_documents: Limit number of documents to process (None = all)
         save_to_file: Whether to save extracted text to files
+        summarize: Whether to generate AI summaries
     
     Returns:
-        List of documents ready for LLM processing
+        Tuple of (llm_ready_documents, summaries)
     """
     print("\n" + "="*70)
     print("CITYSCOPE COMPLETE PIPELINE")
@@ -69,6 +71,29 @@ def runCompletePipeline(max_documents=None, save_to_file=False):
                 f.write(doc['text'])
             print(f"  💾 Saved: {filename}")
     
+    # STEP 4: Generate AI Summaries (optional)
+    summaries = []
+    if summarize and llm_ready_documents:
+        print("\n[STEP 4/4] Generating AI summaries with Gemini...")
+        print("-"*70)
+        
+        summaries, failed_summaries = summarizeMultipleDocuments(llm_ready_documents)
+        
+        # Save summaries if requested
+        if save_to_file and summaries:
+            summary_dir = 'summaries'
+            os.makedirs(summary_dir, exist_ok=True)
+            
+            for summary in summaries:
+                filename = f"{summary_dir}/summary_{summary['document_id']}.txt"
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(f"DocumentId: {summary['document_id']}\n")
+                    f.write(f"Filename: {summary['filename']}\n")
+                    f.write(f"Compression: {summary['compression_ratio']}x\n")
+                    f.write(f"{'='*70}\n\n")
+                    f.write(summary['summary'])
+                print(f"  💾 Saved summary: {filename}")
+    
     # Final Summary
     print("\n" + "="*70)
     print("PIPELINE COMPLETE")
@@ -77,9 +102,11 @@ def runCompletePipeline(max_documents=None, save_to_file=False):
     print(f"  Documents parsed: {len(parsed_documents)}")
     print(f"  Documents failed: {len(failed)}")
     print(f"  Ready for LLM: {len(llm_ready_documents)}")
+    if summarize:
+        print(f"  Summaries generated: {len(summaries)}")
     print("="*70 + "\n")
     
-    return llm_ready_documents
+    return llm_ready_documents, summaries
 
 def getDocumentStats(documents):
     """
@@ -106,17 +133,25 @@ def quickTest(num_docs=3):
     Quick test with limited number of documents
     """
     print("\n🧪 Running quick test with first few documents...\n")
-    documents = runCompletePipeline(max_documents=num_docs, save_to_file=True)
+    documents, summaries = runCompletePipeline(max_documents=num_docs, save_to_file=True, summarize=True)
     
     if documents:
         getDocumentStats(documents)
         
+        if summaries:
+            print("\n📋 Sample Summary:")
+            print("="*70)
+            print(f"Document: {summaries[0]['filename']}")
+            print("-"*70)
+            print(summaries[0]['summary'])
+            print("="*70)
+        
         print("\n✅ Test successful! You can now:")
-        print("  1. Check 'extracted_texts/' folder for saved text files")
-        print("  2. Integrate with Gemini LLM for summarization")
-        print("  3. Store summaries in Supabase")
+        print("  1. Check 'extracted_texts/' folder for full document text")
+        print("  2. Check 'summaries/' folder for AI-generated summaries")
+        print("  3. Integrate with Supabase to store summaries")
     
-    return documents
+    return documents, summaries
 
 if __name__ == "__main__":
     import argparse
@@ -126,23 +161,27 @@ if __name__ == "__main__":
     parser.add_argument('--max', type=int, default=None, help='Maximum number of documents to process')
     parser.add_argument('--save', action='store_true', help='Save extracted text to files')
     parser.add_argument('--all', action='store_true', help='Process all documents')
+    parser.add_argument('--no-summarize', action='store_true', help='Skip AI summarization')
     
     args = parser.parse_args()
     
+    summarize = not args.no_summarize
+    
     if args.test:
         # Quick test mode
-        documents = quickTest()
+        documents, summaries = quickTest()
     elif args.all:
         # Process all documents
-        documents = runCompletePipeline(save_to_file=args.save)
+        documents, summaries = runCompletePipeline(save_to_file=args.save, summarize=summarize)
         if documents:
             getDocumentStats(documents)
     else:
         # Custom number of documents
-        documents = runCompletePipeline(max_documents=args.max, save_to_file=args.save)
+        documents, summaries = runCompletePipeline(max_documents=args.max, save_to_file=args.save, summarize=summarize)
         if documents:
             getDocumentStats(documents)
     
-    # Return documents for further processing (e.g., LLM summarization)
-    print("\n💡 Next step: Pass these documents to your LLM summarizer!")
-    print(f"   Example: summarizer.summarizeDocuments(documents)")
+    # Return documents for further processing
+    print("\n💡 Next step: Store these summaries in Supabase database!")
+    print(f"   Documents processed: {len(documents) if documents else 0}")
+    print(f"   Summaries generated: {len(summaries) if summaries else 0}")
