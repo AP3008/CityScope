@@ -224,7 +224,7 @@ def getRecentDocuments(documents, limit=30):
     # Return just the document IDs
     return [doc['document_id'] for doc in recent]
 
-def scrapeMultiplePagesWithDates():
+def scrapeMultiplePages():
     """Scrape multiple pages and return recent documents"""
     pages = [
         "https://pub-london.escribemeetings.com/",
@@ -245,7 +245,7 @@ def scrapeMultiplePagesWithDates():
 
 if __name__ == "__main__":
     # Scrape all documents with metadata
-    all_documents = scrapeMultiplePagesWithDates()
+    all_documents = scrapeMultiplePages()
     
     # Get the 30 most recent
     recent_doc_ids = getRecentDocuments(all_documents, limit=30)

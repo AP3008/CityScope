@@ -17,3 +17,7 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+#local summaries
+summaries/
+extracted_texts/

@@ -1,21 +1,23 @@
 import sys
 import os
 
-# Add parent directory to path so we can import from fetchers and parsers
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add parent directory to path so we can import from services
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fetchers.fetch import scrapeMultiplePages
+from fetchers.fetch import scrapeMultiplePages, getRecentDocuments
 from parsers.parser import parseMultiplePdfs, prepareTextForLLM
 from summarizer import summarizeMultipleDocuments
+from services.database import saveMultipleSummaries
 
-def runCompletePipeline(max_documents=None, save_to_file=False, summarize=True):
+def runCompletePipeline(max_documents=None, save_to_file=False, summarize=True, save_to_db=True):
     """
-    Complete pipeline: Scrape -> Parse -> Prepare for LLM -> Summarize
+    Complete pipeline: Scrape -> Parse -> Prepare for LLM -> Summarize -> Save to DB
     
     Args:
-        max_documents: Limit number of documents to process (None = all)
+        max_documents: Limit number of documents to process (None = default 30)
         save_to_file: Whether to save extracted text to files
         summarize: Whether to generate AI summaries
+        save_to_db: Whether to save summaries to Supabase
     
     Returns:
         Tuple of (llm_ready_documents, summaries)
@@ -28,26 +30,36 @@ def runCompletePipeline(max_documents=None, save_to_file=False, summarize=True):
     print("\n[STEP 1/3] Scraping DocumentIds from eSCRIBE portal...")
     print("-"*70)
     
-    document_ids = scrapeMultiplePages()
-    
-    if not document_ids:
+   # STEP 1: Scrape all DocumentIds
+    all_documents = scrapeMultiplePages() # Now a list of dicts
+
+    if not all_documents:
         print("\n✗ No documents found. Exiting.")
         return []
-    
-    print(f"\n✓ Found {len(document_ids)} unique documents")
-    
-    # STEP 2: Parse PDFs and extract text
-    print("\n[STEP 2/3] Parsing PDFs and extracting text...")
+
+# Fix sorting: Extract the 'document_id' from each dictionary to sort
+# We sort by the integer value of the ID to get the newest ones first
+    all_documents.sort(key=lambda x: int(x['document_id']), reverse=True)
+
+# Slice the list to get your limit (e.g., 30)
+    recent_docs = all_documents[:max_documents] if max_documents else all_documents[:30]
+
+# Extract just the IDs to pass to the parser
+    document_ids = [doc['document_id'] for doc in recent_docs]
+
+    print(f"📋 Processing {len(document_ids)} most recent documents")
+    # STEP 3: Parse PDFs and extract text
+    print("\n[STEP 3/4] Parsing PDFs and extracting text...")
     print("-"*70)
     
-    parsed_documents, failed = parseMultiplePdfs(document_ids, max_docs=max_documents)
+    parsed_documents, failed = parseMultiplePdfs(document_ids, max_docs=None)
     
     if not parsed_documents:
         print("\n✗ No documents parsed successfully. Exiting.")
         return []
     
-    # STEP 3: Prepare for LLM
-    print("\n[STEP 3/3] Preparing documents for LLM processing...")
+    # STEP 4: Prepare for LLM
+    print("\n[STEP 4/5] Preparing documents for LLM processing...")
     print("-"*70)
     
     llm_ready_documents = []
@@ -71,10 +83,10 @@ def runCompletePipeline(max_documents=None, save_to_file=False, summarize=True):
                 f.write(doc['text'])
             print(f"  💾 Saved: {filename}")
     
-    # STEP 4: Generate AI Summaries (optional)
+    # STEP 5: Generate AI Summaries (optional)
     summaries = []
     if summarize and llm_ready_documents:
-        print("\n[STEP 4/4] Generating AI summaries with Gemini...")
+        print("\n[STEP 5/5] Generating AI summaries with Gemini...")
         print("-"*70)
         
         summaries, failed_summaries = summarizeMultipleDocuments(llm_ready_documents)
@@ -94,12 +106,20 @@ def runCompletePipeline(max_documents=None, save_to_file=False, summarize=True):
                     f.write(summary['summary'])
                 print(f"  💾 Saved summary: {filename}")
     
+    # STEP 6: Save to Supabase Database
+    if save_to_db and summaries:
+        print("\n[STEP 6/6] Saving summaries to Supabase...")
+        print("-"*70)
+        
+        saved_count = saveMultipleSummaries(summaries, llm_ready_documents)
+        print(f"  ✓ Saved {saved_count} summaries to database")
+    
     # Final Summary
     print("\n" + "="*70)
     print("PIPELINE COMPLETE")
     print("="*70)
-    print(f"  Documents scraped: {len(document_ids)}")
-    print(f"  Documents parsed: {len(parsed_documents)}")
+    print(f"  Total documents found: {len(all_documents)}")
+    print(f"  Documents processed: {len(parsed_documents)}")
     print(f"  Documents failed: {len(failed)}")
     print(f"  Ready for LLM: {len(llm_ready_documents)}")
     if summarize:
