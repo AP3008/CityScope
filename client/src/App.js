@@ -1,38 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, X, Filter, ChevronDown } from 'lucide-react';
-/* */
+import { Calendar, X, ExternalLink } from 'lucide-react';
 
 function App() {
   const [summaries, setSummaries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showHero, setShowHero] = useState(true);
+  const [fadeOut, setFadeOut] = useState(false);
   const [selectedSummary, setSelectedSummary] = useState(null);
-  const [filterDays, setFilterDays] = useState('all');
-  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
-    // Hero animation - hide after 2.5 seconds
-    const timer = setTimeout(() => {
+    // Start fade out after 3.5 seconds
+    const fadeTimer = setTimeout(() => {
+      setFadeOut(true);
+    }, 3500);
+
+    // Completely hide hero after fade animation completes
+    const hideTimer = setTimeout(() => {
       setShowHero(false);
-    }, 2500);
+    }, 4500);
 
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
     fetchSummaries();
-  }, [filterDays]);
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(hideTimer);
+    };
+  }, []);
 
   const fetchSummaries = async () => {
     setLoading(true);
     try {
-      let url = 'http://127.0.0.1:5000/summaries';
-      
-      if (filterDays !== 'all') {
-        url = `http://127.0.0.1:5000/summaries/recent?days=${filterDays}`;
-      }
-      
-      const response = await fetch(url);
+      const response = await fetch('http://127.0.0.1:5000/summaries');
       const data = await response.json();
       
       if (data.success) {
@@ -55,44 +52,132 @@ function App() {
     });
   };
 
-  const formatSummary = (text) => {
-    if (!text) return [];
-    return text
-      .split(/\n|•/)
-      .map(point => point.trim())
-      .filter(point => point.length > 0);
-  };
-
   if (showHero) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 flex items-center justify-center overflow-hidden">
-        <div className="text-center">
-          <h1 className="text-8xl font-bold text-white animate-fade-in-up tracking-tight">
-            CityScope
-          </h1>
-          <p className="text-2xl text-blue-200 mt-4 animate-fade-in-up-delay">
-            London Council Meetings Simplified
-          </p>
+      <div className={`hero-container ${fadeOut ? 'fade-out' : ''}`}>
+        <div className="liquid-bg"></div>
+        <div className="glow-effect"></div>
+        <div className="hero-content">
+          <h1 className="hero-title">CityScope</h1>
+          <div className="hero-glow"></div>
         </div>
+        
         <style>{`
-          @keyframes fadeInUp {
+          .hero-container {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
+            transition: opacity 1s ease-out;
+          }
+
+          .hero-container.fade-out {
+            opacity: 0;
+          }
+
+          .liquid-bg {
+            position: absolute;
+            inset: 0;
+            background: 
+              radial-gradient(circle at 20% 50%, rgba(14, 165, 233, 0.15) 0%, transparent 50%),
+              radial-gradient(circle at 80% 80%, rgba(6, 182, 212, 0.15) 0%, transparent 50%),
+              radial-gradient(circle at 40% 80%, rgba(56, 189, 248, 0.15) 0%, transparent 50%),
+              radial-gradient(circle at 60% 20%, rgba(34, 211, 238, 0.15) 0%, transparent 50%);
+            filter: blur(80px);
+            animation: liquidMove 10s ease-in-out infinite;
+          }
+
+          .glow-effect {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(14, 165, 233, 0.1) 0%, transparent 70%);
+            animation: pulse 3s ease-in-out infinite;
+          }
+
+          @keyframes pulse {
+            0%, 100% {
+              opacity: 0.5;
+              transform: scale(1);
+            }
+            50% {
+              opacity: 1;
+              transform: scale(1.05);
+            }
+          }
+
+          @keyframes liquidMove {
+            0%, 100% {
+              transform: scale(1) translate(0, 0);
+            }
+            33% {
+              transform: scale(1.1) translate(2%, -2%);
+            }
+            66% {
+              transform: scale(0.9) translate(-2%, 2%);
+            }
+          }
+
+          .hero-content {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+          }
+
+          .hero-title {
+            font-size: 8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffffff 0%, #e0f2fe 50%, #bae6fd 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 0;
+            letter-spacing: -0.03em;
+            opacity: 0;
+            animation: titleAppear 1.5s ease-out 0.8s forwards;
+            text-shadow: 0 0 80px rgba(14, 165, 233, 0.5);
+            position: relative;
+          }
+
+          .hero-glow {
+            position: absolute;
+            inset: -50%;
+            background: radial-gradient(circle, rgba(14, 165, 233, 0.3) 0%, transparent 70%);
+            filter: blur(60px);
+            animation: glowPulse 2s ease-in-out infinite 2s;
+            z-index: -1;
+          }
+
+          @keyframes glowPulse {
+            0%, 100% {
+              opacity: 0.3;
+              transform: scale(0.8);
+            }
+            50% {
+              opacity: 0.6;
+              transform: scale(1.2);
+            }
+          }
+
+          @keyframes titleAppear {
             from {
               opacity: 0;
-              transform: translateY(30px);
+              transform: translateY(30px) scale(0.9);
+              filter: blur(10px);
             }
             to {
               opacity: 1;
-              transform: translateY(0);
+              transform: translateY(0) scale(1);
+              filter: blur(0);
             }
           }
-          
-          .animate-fade-in-up {
-            animation: fadeInUp 1s ease-out forwards;
-          }
-          
-          .animate-fade-in-up-delay {
-            opacity: 0;
-            animation: fadeInUp 1s ease-out 0.5s forwards;
+
+          @media (max-width: 768px) {
+            .hero-title {
+              font-size: 4rem;
+            }
           }
         `}</style>
       </div>
@@ -100,83 +185,68 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Fixed Header */}
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 animate-page-in">
+      {/* Header */}
+      <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/70 border-b border-gray-200/50 shadow-sm animate-slide-down">
+        <div className="max-w-5xl mx-auto px-6 py-6">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-cyan-600 via-blue-600 to-sky-600 bg-clip-text text-transparent">
               CityScope
             </h1>
-            <p className="text-sm text-gray-600">London Council Meetings</p>
+            <p className="text-gray-600 mt-2">London Council Meetings</p>
           </div>
-          
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Filter size={18} />
-            Filter
-          </button>
         </div>
-
-        {/* Filter Dropdown */}
-        {showFilters && (
-          <div className="border-t border-gray-200 bg-white">
-            <div className="max-w-7xl mx-auto px-6 py-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Time Period
-              </label>
-              <select
-                value={filterDays}
-                onChange={(e) => setFilterDays(e.target.value)}
-                className="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              >
-                <option value="all">All Time</option>
-                <option value="7">Last 7 Days</option>
-                <option value="30">Last 30 Days</option>
-                <option value="90">Last 90 Days</option>
-                <option value="180">Last 6 Months</option>
-                <option value="365">Last Year</option>
-              </select>
-            </div>
-          </div>
-        )}
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Stats Bar */}
+      <main className="max-w-5xl mx-auto px-6 py-12">
+        {/* Stats */}
         <div className="mb-8 text-center">
-          <p className="text-gray-600">
-            <span className="text-2xl font-bold text-gray-900">{summaries.length}</span>
-            {' '}meeting summaries available
+          <p className="text-gray-600 text-lg">
+            <span className="text-3xl font-bold text-gray-900">{summaries.length}</span>
+            {' '}meeting summaries
           </p>
         </div>
 
         {/* Loading State */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-cyan-600"></div>
             <p className="text-gray-600 mt-4">Loading meetings...</p>
           </div>
         )}
 
-        {/* Cards Grid */}
+        {/* List View */}
         {!loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="space-y-4">
             {summaries.map((summary) => (
               <button
                 key={summary.id || summary.document_id}
                 onClick={() => setSelectedSummary(summary)}
-                className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 p-6 text-left border-2 border-transparent hover:border-blue-400 transform hover:-translate-y-1"
+                className="w-full bg-white/80 backdrop-blur-sm rounded-2xl shadow-md hover:shadow-2xl transition-all duration-300 p-6 text-left border border-gray-200/50 hover:border-cyan-300 hover:scale-[1.01] group"
               >
-                <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-2">
-                  {summary.meeting_title || summary.filename || 'Council Meeting'}
-                </h3>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Calendar size={16} />
-                  <span>{formatDate(summary.meeting_date || summary.created_at)}</span>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-xl text-gray-900 mb-2 group-hover:text-cyan-600 transition-colors">
+                      {summary.meeting_title || 'Council Meeting'}
+                    </h3>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Calendar size={16} className="flex-shrink-0" />
+                      <span>{formatDate(summary.meeting_date || summary.created_at)}</span>
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-cyan-100 group-hover:bg-cyan-200 flex items-center justify-center transition-colors">
+                      <svg 
+                        className="w-5 h-5 text-cyan-600 transform group-hover:translate-x-1 transition-transform" 
+                        fill="none" 
+                        viewBox="0 0 24 24" 
+                        stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
               </button>
             ))}
@@ -186,67 +256,66 @@ function App() {
         {/* Empty State */}
         {!loading && summaries.length === 0 && (
           <div className="text-center py-20">
-            <ChevronDown className="mx-auto text-gray-400 mb-4" size={48} />
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+              <Calendar className="text-gray-400" size={32} />
+            </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">No Meetings Found</h3>
-            <p className="text-gray-600">Try adjusting your filter settings</p>
+            <p className="text-gray-600">Check back later for new council meeting summaries</p>
           </div>
         )}
       </main>
 
-      {/* Modal for Full Summary */}
+      {/* Modal */}
       {selectedSummary && (
         <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in"
           onClick={() => setSelectedSummary(null)}
         >
           <div 
-            className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-modal-in"
+            className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6 relative">
+            <div className="relative bg-gradient-to-r from-cyan-600 via-blue-600 to-sky-600 px-8 py-8">
               <button
                 onClick={() => setSelectedSummary(null)}
-                className="absolute top-4 right-4 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+                className="absolute top-6 right-6 text-white/80 hover:text-white bg-white/20 hover:bg-white/30 rounded-full p-2.5 transition-all hover:rotate-90 duration-300"
               >
                 <X size={24} />
               </button>
               
-              <h2 className="text-2xl font-bold text-white pr-12 mb-2">
-                {selectedSummary.meeting_title || selectedSummary.filename || 'Council Meeting'}
+              <h2 className="text-3xl font-bold text-white pr-16 mb-3 leading-tight">
+                {selectedSummary.meeting_title || 'Council Meeting'}
               </h2>
-              <div className="flex items-center gap-2 text-blue-100">
+              <div className="flex items-center gap-2 text-white/90">
                 <Calendar size={18} />
-                <span>{formatDate(selectedSummary.meeting_date || selectedSummary.created_at)}</span>
+                <span className="text-lg">{formatDate(selectedSummary.meeting_date || selectedSummary.created_at)}</span>
               </div>
             </div>
 
             {/* Modal Body */}
-            <div className="p-8 overflow-y-auto max-h-[calc(90vh-200px)]">
-              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">
+            <div className="p-8 overflow-y-auto max-h-[calc(90vh-250px)]">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-6">
                 Meeting Summary
               </h3>
               
-              <div className="space-y-3">
-                {formatSummary(selectedSummary.summary).map((point, idx) => (
-                  <div key={idx} className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
-                      <span className="text-blue-600 font-bold text-sm">{idx + 1}</span>
-                    </div>
-                    <p className="text-gray-700 leading-relaxed flex-1">{point}</p>
-                  </div>
-                ))}
-              </div>
+              <p className="text-gray-700 leading-relaxed text-lg">
+                {selectedSummary.summary}
+              </p>
 
               {/* View Original Button */}
-              <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="mt-10 pt-8 border-t border-gray-200 flex items-center justify-between">
+                <p className="text-sm text-gray-500">
+                  Want more details? View the complete official document
+                </p>
                 <a
                   href={selectedSummary.original_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl hover:from-cyan-700 hover:to-blue-700 transition-all font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                 >
-                  View Original PDF Document
+                  View Original PDF
+                  <ExternalLink size={18} />
                 </a>
               </div>
             </div>
@@ -255,7 +324,12 @@ function App() {
       )}
 
       <style>{`
-        @keyframes modalIn {
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        
+        @keyframes scaleIn {
           from {
             opacity: 0;
             transform: scale(0.95);
@@ -265,16 +339,43 @@ function App() {
             transform: scale(1);
           }
         }
-        
-        .animate-modal-in {
-          animation: modalIn 0.2s ease-out;
+
+        @keyframes pageIn {
+          from {
+            opacity: 0;
+            transform: scale(1.02);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
         }
 
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-fade-in {
+          animation: fadeIn 0.2s ease-out;
+        }
+        
+        .animate-scale-in {
+          animation: scaleIn 0.3s ease-out;
+        }
+
+        .animate-page-in {
+          animation: pageIn 1s ease-out;
+        }
+
+        .animate-slide-down {
+          animation: slideDown 0.8s ease-out;
         }
       `}</style>
     </div>

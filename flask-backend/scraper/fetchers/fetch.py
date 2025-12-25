@@ -147,6 +147,7 @@ def extractDocumentsWithMetadata(url="https://pub-london.escribemeetings.com/", 
         # Extract all PDFs with metadata
         print("\nExtracting documents with metadata...")
         
+        # Find all PDF links
         for link in soup.find_all('a', href=True):
             href = link.get('href', '')
             
@@ -154,26 +155,50 @@ def extractDocumentsWithMetadata(url="https://pub-london.escribemeetings.com/", 
                 match = re.search(r'DocumentId=(\d+)', href)
                 if match:
                     doc_id = match.group(1)
-                    link_text = link.get_text(strip=True)
                     
-                    # Try to find meeting date and title from parent elements
-                    parent = link.parent
-                    meeting_info = parent.get_text(strip=True) if parent else ""
+                    # Try to find the meeting title (link with Meeting.aspx)
+                    meeting_title = None
+                    meeting_date = None
                     
-                    # Extract date if possible
-                    meeting_date = extractDateFromText(meeting_info)
+                    # Look for parent container
+                    parent_container = link.find_parent('div', class_=re.compile('meeting|item'))
+                    if not parent_container:
+                        parent_container = link.find_parent('tr')  # Could be in a table row
+                    if not parent_container:
+                        # Fallback: get any parent div
+                        parent_container = link.find_parent('div')
+                    
+                    if parent_container:
+                        # Extract meeting title from Meeting.aspx link
+                        title_link = parent_container.find('a', href=re.compile('Meeting\.aspx'))
+                        if title_link:
+                            meeting_title = title_link.get_text(strip=True)
+                        
+                        # Extract date from meeting-date div
+                        date_div = parent_container.find('div', class_='meeting-date')
+                        if date_div:
+                            date_text = date_div.get_text(strip=True)
+                            meeting_date = extractDateFromText(date_text)
+                        
+                        # Fallback: search for any date in the parent container
+                        if not meeting_date:
+                            container_text = parent_container.get_text()
+                            meeting_date = extractDateFromText(container_text)
+                    
+                    # Fallback: if no title found, use link text or filename
+                    if not meeting_title:
+                        meeting_title = link.get_text(strip=True) or f"Meeting Document {doc_id}"
                     
                     doc_info = {
                         'document_id': doc_id,
-                        'link_text': link_text,
+                        'meeting_title': meeting_title,
                         'meeting_date': meeting_date,
-                        'meeting_info': meeting_info[:100]  # First 100 chars for context
                     }
                     
                     documents.append(doc_info)
                     
                     date_str = meeting_date.strftime('%Y-%m-%d') if meeting_date else 'No date'
-                    print(f"  Found: DocumentId={doc_id} | Date: {date_str} | {link_text[:50]}")
+                    print(f"  Found: DocumentId={doc_id} | Date: {date_str} | {meeting_title[:60]}")
         
         print(f"\n✓ Extracted {len(documents)} documents with metadata")
         
@@ -195,7 +220,7 @@ def getRecentDocuments(documents, limit=30):
         limit: Number of recent documents to return
     
     Returns:
-        List of most recent document IDs
+        List of most recent documents (full dict, not just IDs)
     """
     # Separate documents with dates from those without
     with_dates = [doc for doc in documents if doc['meeting_date'] is not None]
@@ -216,13 +241,12 @@ def getRecentDocuments(documents, limit=30):
     print(f"\n📋 Selected {len(recent)} most recent documents:")
     for doc in recent[:5]:  # Show first 5
         date_str = doc['meeting_date'].strftime('%Y-%m-%d') if doc['meeting_date'] else 'Unknown date'
-        print(f"  - {date_str}: {doc['link_text'][:60]}")
+        print(f"  - {date_str}: {doc['meeting_title'][:60]}")
     
     if len(recent) > 5:
         print(f"  ... and {len(recent) - 5} more")
     
-    # Return just the document IDs
-    return [doc['document_id'] for doc in recent]
+    return recent
 
 def scrapeMultiplePages():
     """Scrape multiple pages and return recent documents"""
@@ -248,8 +272,8 @@ if __name__ == "__main__":
     all_documents = scrapeMultiplePages()
     
     # Get the 30 most recent
-    recent_doc_ids = getRecentDocuments(all_documents, limit=30)
+    recent_docs = getRecentDocuments(all_documents, limit=30)
     
     print(f"\n{'='*60}")
-    print(f"Ready to process {len(recent_doc_ids)} recent documents")
+    print(f"Ready to process {len(recent_docs)} recent documents")
     print(f"{'='*60}")

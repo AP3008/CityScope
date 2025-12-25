@@ -1,9 +1,9 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from services.database import getAllSummaries, getSummaryByDocumentId, getRecentSummaries
+from database import getAllSummaries, getSummaryByDocumentId, getRecentSummaries
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for your React frontend
+CORS(app)
 
 @app.route('/')
 def home():
@@ -19,11 +19,6 @@ def home():
 
 @app.route('/summaries', methods=['GET'])
 def get_summaries():
-    """
-    Get all summaries with optional limit
-    Query params:
-        - limit: Number of results to return (default: 30)
-    """
     try:
         limit = request.args.get('limit', default=30, type=int)
         summaries = getAllSummaries(limit=limit)
@@ -41,9 +36,6 @@ def get_summaries():
 
 @app.route('/summaries/<document_id>', methods=['GET'])
 def get_summary(document_id):
-    """
-    Get a specific summary by document ID
-    """
     try:
         summary = getSummaryByDocumentId(document_id)
         
@@ -66,11 +58,6 @@ def get_summary(document_id):
 
 @app.route('/summaries/recent', methods=['GET'])
 def get_recent_summaries():
-    """
-    Get summaries from the last N days
-    Query params:
-        - days: Number of days to look back (default: 30)
-    """
     try:
         days = request.args.get('days', default=30, type=int)
         summaries = getRecentSummaries(days=days)
@@ -89,9 +76,6 @@ def get_recent_summaries():
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    """
-    Health check endpoint
-    """
     return jsonify({
         "status": "healthy",
         "service": "CityScope API"
