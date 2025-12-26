@@ -9,15 +9,8 @@ function App() {
   const [selectedSummary, setSelectedSummary] = useState(null);
 
   useEffect(() => {
-    // Start fade out after 3.5 seconds
-    const fadeTimer = setTimeout(() => {
-      setFadeOut(true);
-    }, 3500);
-
-    // Completely hide hero after fade animation completes
-    const hideTimer = setTimeout(() => {
-      setShowHero(false);
-    }, 4500);
+    const fadeTimer = setTimeout(() => setFadeOut(true), 3500);
+    const hideTimer = setTimeout(() => setShowHero(false), 4500);
 
     fetchSummaries();
     return () => {
@@ -50,6 +43,23 @@ function App() {
       month: 'long', 
       day: 'numeric' 
     });
+  };
+
+  const parseSummary = (text) => {
+    if (!text) return { intro: '', bullets: [] };
+    
+    // Split by bullet point symbol •
+    const parts = text.split('•').map(p => p.trim()).filter(p => p.length > 0);
+    
+    if (parts.length === 0) {
+      return { intro: text, bullets: [] };
+    }
+    
+    // First part is intro sentence, rest are bullet points
+    return {
+      intro: parts[0],
+      bullets: parts.slice(1)
+    };
   };
 
   if (showHero) {
@@ -98,26 +108,14 @@ function App() {
           }
 
           @keyframes pulse {
-            0%, 100% {
-              opacity: 0.5;
-              transform: scale(1);
-            }
-            50% {
-              opacity: 1;
-              transform: scale(1.05);
-            }
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
           }
 
           @keyframes liquidMove {
-            0%, 100% {
-              transform: scale(1) translate(0, 0);
-            }
-            33% {
-              transform: scale(1.1) translate(2%, -2%);
-            }
-            66% {
-              transform: scale(0.9) translate(-2%, 2%);
-            }
+            0%, 100% { transform: scale(1) translate(0, 0); }
+            33% { transform: scale(1.1) translate(2%, -2%); }
+            66% { transform: scale(0.9) translate(-2%, 2%); }
           }
 
           .hero-content {
@@ -151,33 +149,17 @@ function App() {
           }
 
           @keyframes glowPulse {
-            0%, 100% {
-              opacity: 0.3;
-              transform: scale(0.8);
-            }
-            50% {
-              opacity: 0.6;
-              transform: scale(1.2);
-            }
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 0.6; transform: scale(1.2); }
           }
 
           @keyframes titleAppear {
-            from {
-              opacity: 0;
-              transform: translateY(30px) scale(0.9);
-              filter: blur(10px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0) scale(1);
-              filter: blur(0);
-            }
+            from { opacity: 0; transform: translateY(30px) scale(0.9); filter: blur(10px); }
+            to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
           }
 
           @media (max-width: 768px) {
-            .hero-title {
-              font-size: 4rem;
-            }
+            .hero-title { font-size: 4rem; }
           }
         `}</style>
       </div>
@@ -186,7 +168,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 animate-page-in">
-      {/* Header */}
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/70 border-b border-gray-200/50 shadow-sm animate-slide-down">
         <div className="max-w-5xl mx-auto px-6 py-6">
           <div className="text-center">
@@ -198,9 +179,7 @@ function App() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-5xl mx-auto px-6 py-12">
-        {/* Stats */}
         <div className="mb-8 text-center">
           <p className="text-gray-600 text-lg">
             <span className="text-3xl font-bold text-gray-900">{summaries.length}</span>
@@ -208,7 +187,6 @@ function App() {
           </p>
         </div>
 
-        {/* Loading State */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-cyan-600"></div>
@@ -216,7 +194,6 @@ function App() {
           </div>
         )}
 
-        {/* List View */}
         {!loading && (
           <div className="space-y-4">
             {summaries.map((summary) => (
@@ -237,12 +214,7 @@ function App() {
                   </div>
                   <div className="flex-shrink-0">
                     <div className="w-10 h-10 rounded-full bg-cyan-100 group-hover:bg-cyan-200 flex items-center justify-center transition-colors">
-                      <svg 
-                        className="w-5 h-5 text-cyan-600 transform group-hover:translate-x-1 transition-transform" 
-                        fill="none" 
-                        viewBox="0 0 24 24" 
-                        stroke="currentColor"
-                      >
+                      <svg className="w-5 h-5 text-cyan-600 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </div>
@@ -253,7 +225,6 @@ function App() {
           </div>
         )}
 
-        {/* Empty State */}
         {!loading && summaries.length === 0 && (
           <div className="text-center py-20">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
@@ -265,7 +236,6 @@ function App() {
         )}
       </main>
 
-      {/* Modal */}
       {selectedSummary && (
         <div 
           className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in"
@@ -275,7 +245,6 @@ function App() {
             className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
             <div className="relative bg-gradient-to-r from-cyan-600 via-blue-600 to-sky-600 px-8 py-8">
               <button
                 onClick={() => setSelectedSummary(null)}
@@ -293,17 +262,33 @@ function App() {
               </div>
             </div>
 
-            {/* Modal Body */}
             <div className="p-8 overflow-y-auto max-h-[calc(90vh-250px)]">
               <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-6">
                 Meeting Summary
               </h3>
               
-              <p className="text-gray-700 leading-relaxed text-lg">
-                {selectedSummary.summary}
-              </p>
+              {(() => {
+                const { intro, bullets } = parseSummary(selectedSummary.summary);
+                return (
+                  <div>
+                    <p className="text-gray-700 leading-relaxed text-lg mb-6">
+                      {intro}
+                    </p>
+                    
+                    {bullets.length > 0 && (
+                      <ul className="space-y-3">
+                        {bullets.map((bullet, idx) => (
+                          <li key={idx} className="flex items-start gap-3">
+                            <div className="flex-shrink-0 w-2 h-2 bg-cyan-600 rounded-full mt-2"></div>
+                            <span className="text-gray-700 leading-relaxed flex-1">{bullet}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })()}
 
-              {/* View Original Button */}
               <div className="mt-10 pt-8 border-t border-gray-200 flex items-center justify-between">
                 <p className="text-sm text-gray-500">
                   Want more details? View the complete official document
@@ -330,53 +315,24 @@ function App() {
         }
         
         @keyframes scaleIn {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
         }
 
         @keyframes pageIn {
-          from {
-            opacity: 0;
-            transform: scale(1.02);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
+          from { opacity: 0; transform: scale(1.02); }
+          to { opacity: 1; transform: scale(1); }
         }
 
         @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(-20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         
-        .animate-fade-in {
-          animation: fadeIn 0.2s ease-out;
-        }
-        
-        .animate-scale-in {
-          animation: scaleIn 0.3s ease-out;
-        }
-
-        .animate-page-in {
-          animation: pageIn 1s ease-out;
-        }
-
-        .animate-slide-down {
-          animation: slideDown 0.8s ease-out;
-        }
+        .animate-fade-in { animation: fadeIn 0.2s ease-out; }
+        .animate-scale-in { animation: scaleIn 0.3s ease-out; }
+        .animate-page-in { animation: pageIn 1s ease-out; }
+        .animate-slide-down { animation: slideDown 0.8s ease-out; }
       `}</style>
     </div>
   );

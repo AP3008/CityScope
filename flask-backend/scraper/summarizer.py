@@ -1,153 +1,164 @@
 from google import genai
-from google.genai import types
 import os
 from dotenv import load_dotenv
 import time
+import json
 
-# Load environment variables from .env file
-load_dotenv(dotenv_path='../.env')  # Goes up one level to flask-backend/.env
+load_dotenv(dotenv_path='../.env')
 
-# Configure Gemini API
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY not found in .env file!")
 
-# Initialize the client
 client = genai.Client(api_key=GEMINI_API_KEY)
 
-def summarizeDocument(document_text, filename="", document_id=""):
+def extractMetadataAndSummarize(document_text, filename="", document_id=""):
     """
-    Summarize a single city council document using Gemini
-    
-    Args:
-        document_text: The full text of the document
-        filename: Optional filename for context
-        document_id: Optional document ID for reference
+    Extract title, date, and create summary from document
     
     Returns:
-        Dictionary with summary and metadata
+        Dictionary with title, date, summary, or None if extraction fails
     """
     
-    # Create the prompt
-    prompt = f"""You are summarizing official City of London council meeting minutes for residents.
+    prompt = f"""You are analyzing City of London council meeting minutes.
 
-Document: {filename}
+TASK: Extract the meeting title, date, and create a concise summary.
 
-Instructions:
-- Summarize this city council meeting minutes into 5-7 clear bullet points
-- Use simple, non-bureaucratic language that any resident can understand
-- Focus ONLY on decisions that directly affect residents (taxes, construction, bylaws, public services)
-- Ignore procedural items, attendance, and administrative matters
-- Each bullet point should be 1-2 sentences maximum
-- Start each bullet with an action verb (Approved, Rejected, Discussed, Decided, etc.)
-
-Meeting Minutes:
+DOCUMENT TEXT:
 {document_text}
 
-Summary:"""
+RESPOND IN THIS EXACT JSON FORMAT (no markdown, no code blocks, just raw JSON):
+{{
+  "meeting_title": "Full meeting title from the document",
+  "meeting_date": "YYYY-MM-DD format",
+  "summary": "First sentence describing the meeting topic. Then bullet points of major actions taken."
+}}
+
+RULES:
+1. meeting_title: Extract the EXACT official meeting title (e.g., "Planning and Environment Committee")
+2. meeting_date: Must be in YYYY-MM-DD format. If no date found, use null
+3. summary: 
+   - First sentence: What the meeting was about
+   - Then use bullet points for major actions (use • symbol)
+   - Focus ONLY on decisions affecting residents (taxes, construction, bylaws, services)
+   - Ignore procedural items and attendance
+   - Do NOT use asterisks, markdown, or formatting symbols
+   - Keep each bullet point to 1-2 sentences maximum
+
+IMPORTANT: If you cannot find a clear meeting title or date, set them to null.
+
+Respond with ONLY the JSON, nothing else:"""
 
     try:
-        print(f"  Sending to Gemini API...", end=' ')
+        print(f"  Extracting metadata and summarizing...", end=' ')
         
-        # Use Gemini 2.5 Flash (free tier, large context window, stable)
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-2.5-pro',
             contents=prompt
         )
         
-        summary = response.text.strip()
+        response_text = response.text.strip()
         
-        print(f"✓ ({len(summary)} characters)")
+        # Remove markdown code blocks if present
+        if response_text.startswith('```'):
+            response_text = response_text.split('```')[1]
+            if response_text.startswith('json'):
+                response_text = response_text[4:]
+            response_text = response_text.strip()
+        
+        # Parse JSON response
+        data = json.loads(response_text)
+        
+        # Validate required fields
+        if not data.get('meeting_title') or not data.get('meeting_date'):
+            print(f"✗ Missing title or date")
+            return None
+        
+        # Validate date format
+        if data['meeting_date'] == 'null' or not data['meeting_date']:
+            print(f"✗ Invalid date")
+            return None
+        
+        print(f"✓ ({len(data['summary'])} chars)")
         
         return {
             'document_id': document_id,
             'filename': filename,
-            'summary': summary,
+            'meeting_title': data['meeting_title'],
+            'meeting_date': data['meeting_date'],
+            'summary': data['summary'],
             'original_length': len(document_text),
-            'summary_length': len(summary),
-            'compression_ratio': round(len(document_text) / len(summary), 1) if len(summary) > 0 else 0
+            'summary_length': len(data['summary']),
+            'compression_ratio': round(len(document_text) / len(data['summary']), 1) if len(data['summary']) > 0 else 0
         }
         
+    except json.JSONDecodeError as e:
+        print(f"✗ JSON Error: {str(e)}")
+        print(f"Response was: {response_text[:200]}")
+        return None
     except Exception as e:
         print(f"✗ Error: {str(e)}")
-        return {
-            'document_id': document_id,
-            'filename': filename,
-            'summary': None,
-            'error': str(e)
-        }
+        return None
 
-def summarizeMultipleDocuments(documents, delay=1.0):
+def summarizeMultipleDocuments(documents, delay=2.0):
     """
-    Summarize multiple documents with rate limiting
+    Process multiple documents with metadata extraction
     
     Args:
-        documents: List of documents from parser (with 'text', 'filename', 'document_id')
-        delay: Delay between API calls to respect rate limits (seconds)
+        documents: List of documents from parser
+        delay: Delay between API calls (seconds)
     
     Returns:
-        List of summaries
+        Tuple of (summaries, failed)
     """
     summaries = []
     failed = []
     
     print(f"\n{'='*70}")
-    print(f"Summarizing {len(documents)} documents with Gemini...")
+    print(f"Processing {len(documents)} documents with Gemini...")
     print(f"{'='*70}\n")
     
     for idx, doc in enumerate(documents, 1):
         print(f"[{idx}/{len(documents)}] {doc['filename']}")
         
-        result = summarizeDocument(
+        result = extractMetadataAndSummarize(
             document_text=doc['text'],
             filename=doc['filename'],
             document_id=doc['document_id']
         )
         
-        if result.get('summary'):
+        if result:
             summaries.append(result)
-            print(f"  ✓ Summary: {len(result['summary'])} chars, {result['compression_ratio']}x compression\n")
+            print(f"  ✓ Title: {result['meeting_title'][:50]}")
+            print(f"  ✓ Date: {result['meeting_date']}\n")
         else:
-            failed.append(result)
-            print(f"  ✗ Failed: {result.get('error', 'Unknown error')}\n")
+            failed.append({
+                'document_id': doc['document_id'],
+                'filename': doc['filename'],
+                'error': 'Failed to extract title or date'
+            })
+            print(f"  ✗ Skipping document (no valid title/date)\n")
         
-        # Rate limiting - respect Gemini free tier (15 requests/min)
+        # Rate limiting
         if idx < len(documents):
             time.sleep(delay)
     
     print(f"{'='*70}")
-    print(f"Summarization Complete:")
+    print(f"Processing Complete:")
     print(f"  ✓ Successful: {len(summaries)}")
-    print(f"  ✗ Failed: {len(failed)}")
+    print(f"  ✗ Skipped: {len(failed)}")
     print(f"{'='*70}\n")
     
     return summaries, failed
 
-def customPromptSummary(document_text, custom_prompt):
-    """
-    Use a custom prompt for summarization (for testing different approaches)
-    """
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=f"{custom_prompt}\n\nDocument:\n{document_text}"
-        )
-        return response.text.strip()
-        
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return None
-
 def testGeminiConnection():
-    """
-    Test if Gemini API is working
-    """
+    """Test if Gemini API is working"""
     print("\n🧪 Testing Gemini API connection...")
     
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-2.0-flash-exp',
             contents="Say 'Hello from Gemini!' if you're working."
         )
         
@@ -157,36 +168,16 @@ def testGeminiConnection():
         
     except Exception as e:
         print(f"✗ Connection failed: {str(e)}")
-        print("\nTroubleshooting:")
-        print("  1. Check your GEMINI_API_KEY in .env file")
-        print("  2. Verify the API key is valid at https://makersuite.google.com/app/apikey")
-        print("  3. Ensure you have internet connection")
-        print("  4. Try listing available models with: client.models.list()")
         return False
 
-def listAvailableModels():
-    """
-    List all available Gemini models
-    """
-    try:
-        print("\n📋 Available Gemini models:")
-        models = client.models.list()
-        for model in models:
-            print(f"  - {model.name}")
-        return models
-    except Exception as e:
-        print(f"✗ Error listing models: {str(e)}")
-        return []
-
-# Example usage
 if __name__ == "__main__":
-    # Test the connection first
     if testGeminiConnection():
-        print("\n✅ Ready to summarize documents!")
+        print("\n✅ Ready to process documents!")
         
-        # Example: Test with sample text
+        # Test with sample
         sample_text = """
-        City Council Meeting - January 15, 2024
+        Planning and Environment Committee
+        Meeting Date: January 15, 2024
         
         Motion: Approve $2.5M budget for new community center in North London.
         Vote: Passed 8-3
@@ -197,16 +188,16 @@ if __name__ == "__main__":
         Announcement: Property tax increase of 2.5% for 2024 fiscal year.
         """
         
-        print("\n📝 Testing with sample text...\n")
-        result = summarizeDocument(sample_text, filename="Test Document", document_id="test_001")
+        print("\n🔍 Testing with sample...\n")
+        result = extractMetadataAndSummarize(sample_text, "Test", "test_001")
         
-        if result.get('summary'):
+        if result:
             print("\n" + "="*70)
-            print("SAMPLE SUMMARY:")
+            print("SAMPLE RESULT:")
             print("="*70)
-            print(result['summary'])
+            print(f"Title: {result['meeting_title']}")
+            print(f"Date: {result['meeting_date']}")
+            print(f"\n{result['summary']}")
             print("="*70)
     else:
         print("\n❌ Fix API connection before proceeding.")
-        print("\nTrying to list available models...")
-        listAvailableModels()
