@@ -4,7 +4,6 @@
 
 CityScope automatically scrapes, processes, and summarizes City of London council meeting minutes, making local government more accessible to residents. Transform 50-page bureaucratic PDFs into concise, plain-English summaries in seconds.
 
-![CityScope Demo](https://via.placeholder.com/800x400?text=CityScope+Demo)
 
 ## 🎯 What It Does
 
