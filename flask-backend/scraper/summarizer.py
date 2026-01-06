@@ -54,7 +54,7 @@ Respond with ONLY the JSON, nothing else:"""
         print(f"  Extracting metadata and summarizing...", end=' ')
         
         response = client.models.generate_content(
-            model='gemini-2.5-pro',
+            model='gemini-2.0-flash-exp',
             contents=prompt
         )
         
