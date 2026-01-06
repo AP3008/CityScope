@@ -2,45 +2,35 @@ from supabase import create_client, Client
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Get Supabase credentials
 SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in .env file!")
 
-# Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def saveSummaryToDatabase(summary_data, document_metadata=None):
+def saveSummaryToDatabase(summary_data):
     """
-    Save a meeting summary to Supabase (WITHOUT raw_text)
+    Save a meeting summary to Supabase
+    Summary data already contains: title, date, summary from Gemini
     
     Args:
-        summary_data: Dictionary with summary info (from summarizer)
-        document_metadata: Dictionary with meeting_title and meeting_date
+        summary_data: Dictionary with all required fields from summarizer
     
     Returns:
         Result from database insert
     """
     try:
-        # Prepare data for database (NO raw_text)
         db_record = {
             'document_id': summary_data['document_id'],
+            'meeting_title': summary_data['meeting_title'],
+            'meeting_date': summary_data['meeting_date'],
             'summary': summary_data['summary'],
             'original_url': f"https://pub-london.escribemeetings.com/FileStream.ashx?DocumentId={summary_data['document_id']}",
         }
-        
-        # Add metadata if available
-        if document_metadata:
-            db_record['meeting_title'] = document_metadata.get('meeting_title', summary_data.get('filename', 'Unknown Meeting'))
-            if document_metadata.get('meeting_date'):
-                db_record['meeting_date'] = document_metadata['meeting_date'].strftime('%Y-%m-%d')
-        else:
-            db_record['meeting_title'] = summary_data.get('filename', 'Unknown Meeting')
         
         # Insert into database (upsert to avoid duplicates)
         result = supabase.table('meeting_summaries').upsert(
@@ -55,13 +45,12 @@ def saveSummaryToDatabase(summary_data, document_metadata=None):
         print(f"  ✗ Database error: {str(e)}")
         return None
 
-def saveMultipleSummaries(summaries, documents_metadata):
+def saveMultipleSummaries(summaries):
     """
     Save multiple summaries to database
     
     Args:
-        summaries: List of summary dictionaries
-        documents_metadata: List of document metadata (meeting_title, meeting_date)
+        summaries: List of summary dictionaries from summarizer
     
     Returns:
         Number of successfully saved records
@@ -72,16 +61,8 @@ def saveMultipleSummaries(summaries, documents_metadata):
     
     success_count = 0
     
-    # Create a lookup dict for metadata
-    metadata_lookup = {}
-    if documents_metadata:
-        metadata_lookup = {doc['document_id']: doc for doc in documents_metadata}
-    
     for summary in summaries:
-        doc_id = summary['document_id']
-        metadata = metadata_lookup.get(doc_id)
-        
-        result = saveSummaryToDatabase(summary, metadata)
+        result = saveSummaryToDatabase(summary)
         if result:
             success_count += 1
     
@@ -95,7 +76,7 @@ def saveMultipleSummaries(summaries, documents_metadata):
 def getAllSummaries(limit=None):
     """Retrieve all summaries from database"""
     try:
-        query = supabase.table('meeting_summaries').select('*').order('created_at', desc=True)
+        query = supabase.table('meeting_summaries').select('*').order('meeting_date', desc=True)
         
         if limit:
             query = query.limit(limit)
@@ -123,13 +104,30 @@ def getRecentSummaries(days=30):
         result = supabase.table('meeting_summaries').select('*').gte(
             'created_at', 
             f'now() - interval \'{days} days\''
-        ).order('created_at', desc=True).execute()
+        ).order('meeting_date', desc=True).execute()
         
         return result.data
         
     except Exception as e:
         print(f"Error retrieving recent summaries: {str(e)}")
         return []
+
+def checkIfDocumentExists(document_id):
+    """
+    Check if a document already exists in database
+    
+    Args:
+        document_id: The document ID to check
+        
+    Returns:
+        Boolean - True if exists, False otherwise
+    """
+    try:
+        result = supabase.table('meeting_summaries').select('document_id').eq('document_id', document_id).execute()
+        return len(result.data) > 0
+    except Exception as e:
+        print(f"Error checking document existence: {str(e)}")
+        return False
 
 def testDatabaseConnection():
     """Test if Supabase connection is working"""
@@ -149,5 +147,11 @@ def testDatabaseConnection():
 if __name__ == "__main__":
     if testDatabaseConnection():
         print("\n✅ Database ready!")
+        
+        recent = getAllSummaries(limit=5)
+        if recent:
+            print(f"\nMost recent {len(recent)} summaries:")
+            for summary in recent:
+                print(f"  - {summary.get('meeting_title', 'No title')} ({summary.get('meeting_date', 'No date')})")
     else:
         print("\n❌ Fix database connection before proceeding.")
