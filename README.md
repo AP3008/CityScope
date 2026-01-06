@@ -10,7 +10,7 @@ CityScope automatically scrapes, processes, and summarizes City of London counci
 
 - **Automated Scraping**: Crawls the London eSCRIBE portal for new council meeting PDFs
 - **Smart Extraction**: Uses AI to extract meeting titles and dates directly from document content
-- **Intelligent Summarization**: Gemini 2.5 Pro generates concise summaries focused on resident-impacting decisions
+- **Intelligent Summarization**: Gemini 2.5 flash generates concise summaries focused on resident-impacting decisions
 - **Duplicate Detection**: Automatically skips documents already in the database
 - **Batch Processing**: Processes documents in configurable batches to avoid rate limits
 - **Monthly Automation**: GitHub Actions runs monthly to keep database updated
