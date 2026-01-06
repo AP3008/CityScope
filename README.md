@@ -70,7 +70,7 @@ CityScope/
 - **Flask** - REST API framework
 - **Selenium + BeautifulSoup** - Web scraping
 - **PyMuPDF (fitz)** - PDF parsing
-- **Google Gemini 2.5 Pro** - AI summarization
+- **Google Gemini 2.5 Flash** - AI summarization
 - **Supabase** - PostgreSQL database
 
 ### Frontend
@@ -374,7 +374,7 @@ Edit `flask-backend/scraper/summarizer.py`:
 
 In `summarizer.py`, update:
 ```python
-model='gemini-2.0-flash-exp'  # Faster, less accurate
+model='gemini-2.5-flash'  # Faster, less accurate
 ```
 
 ### Adjusting Scraping Schedule
